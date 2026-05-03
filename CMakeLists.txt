@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.16)
+project(space-shooter)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 17)
+
+# Dùng chung cache cho mọi project
+set(FETCHCONTENT_BASE_DIR "C:/raylib-cache" CACHE PATH "" FORCE)
+
+include(FetchContent)
+FetchContent_Declare(
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG        5.5
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(raylib)
+
+add_executable(${PROJECT_NAME} src/main.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
+
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE winmm gdi32 opengl32)
+endif()
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+)
