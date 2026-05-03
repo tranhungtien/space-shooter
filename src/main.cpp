@@ -59,6 +59,7 @@ void Extend(Texture2D tex, float x, float y, float mul) {
 
 int main() {
     InitWindow(W, H, "My Game");
+    InitAudioDevice();
     SetTargetFPS(60);
 
     std::vector<Texture2D> texPlayer;
@@ -110,6 +111,16 @@ int main() {
     Texture2D texButton_menu = LoadTextureFromImage(imButton_menu);
     UnloadImage(imButton_menu);
 
+    Music music_background = LoadMusicStream("assets/sound/sou_background.mp3");
+    Music music_win = LoadMusicStream("assets/sound/win_sound.mp3");
+    Music music_lose = LoadMusicStream("assets/sound/lose_sound.mp3");
+    PlayMusicStream(music_background);
+    Sound sou_explose = LoadSound("assets/sound/sou_explose.mp3");
+    Sound sou_explose_1 = LoadSound("assets/sound/EnemyShoot.wav");
+    Sound sou_laser = LoadSound("assets/sound/sou_laser.mp3");
+    Sound sou_laser_enemy = LoadSound("assets/sound/EnemyShoot.wav");
+    
+
     GameScreen CurrentScreen = MENU;
 
     WaveState waveState = WAVE_ANNOUNCE;
@@ -133,11 +144,18 @@ int main() {
     float enterTime = 2.0f; 
     bool GameOver = false;
     float wait = 0;
+    bool shouldExit = false;
+    bool playingWin = false;
+    bool playingLose = false;
 
     Vector2 player_pos;
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && !shouldExit) {
         float dt = GetFrameTime();
+
+        UpdateMusicStream(music_background);
+        UpdateMusicStream(music_win);
+        UpdateMusicStream(music_lose);
 
         bgScroll_back += 100 * dt;
         if (bgScroll_back >= 512) bgScroll_back -= 512;
@@ -231,6 +249,11 @@ int main() {
                             if (wait < 0) {
                                 wait = 0;
                                 CurrentScreen = END;
+                                if (!playingLose) {
+                                    StopMusicStream(music_background);
+                                    PlayMusicStream(music_lose);
+                                    playingLose = true;
+                                }
                                 continue;
                             }
                         }
@@ -241,6 +264,11 @@ int main() {
                                 wave++;
                                 if (wave > 5){
                                     CurrentScreen = END;
+                                    if (!playingWin) {
+                                        StopMusicStream(music_background);
+                                        PlayMusicStream(music_win);
+                                        playingWin = true;
+                                    }
                                 }
                                 waveState = WAVE_ANNOUNCE;
                                 player_pos = {W/2, 800};
@@ -265,6 +293,7 @@ int main() {
                                 e.shoot_timer += dt;
                                 if (e.shoot_timer >= e.shoot_cd) {
                                     enemy_bullets.push_back({{e.pos.x + texEnemy[e.tex_id - 1].width * 0.5f, e.pos.y + texEnemy[e.tex_id - 1].height}, true});
+                                    PlaySound(sou_laser_enemy);
                                     e.shoot_timer = 0;
                                     if (wave == 3) e.shoot_cd = GetRandomValue(300, 500) / 100.0f;
                                     else e.shoot_cd = GetRandomValue(150, 300) / 100.0f;
@@ -328,6 +357,7 @@ int main() {
                             if (IsKeyPressed(KEY_SPACE) && shoot_timer >= shoot_cd) {
                                 shoot_timer = 0;
                                 bullets.push_back({player_pos, true});
+                                PlaySound(sou_laser);
                             }
                         }
 
@@ -340,6 +370,7 @@ int main() {
                                     it.active = false;
                                     e.active = false;
                                     spawnExplosion(particles, {e.pos.x + texEnemy[e.tex_id - 1].width * 0.5f, e.pos.y + texEnemy[e.tex_id - 1].height * 0.5f});
+                                    PlaySound(sou_explose);
                                 }
                             }
                             if (it.pos.y < -5) it.active = false;
@@ -352,6 +383,7 @@ int main() {
                             if (CheckCollisionRecs({it.pos.x - texBullet_e.width * 0.5f, it.pos.y - texBullet_e.height * 0.5f, (float)texBullet_e.width, (float)texBullet_e.height}, {player_pos.x - texPlayer[skin_id - 1].width * 0.5f, player_pos.y - texPlayer[skin_id - 1].height * 0.5f, (float)texPlayer[skin_id - 1].width, (float)texPlayer[skin_id - 1].height})) {
                                 GameOver = true;
                                 spawnExplosion(particles, player_pos);
+                                PlaySound(sou_explose);
                                 wait = 2.0f;
                             }
                             if (it.pos.y > H + 15) it.active = false;
@@ -362,7 +394,9 @@ int main() {
                             if (CheckCollisionRecs({e.pos.x, e.pos.y, (float)texEnemy[e.tex_id - 1].width, (float)texEnemy[e.tex_id - 1].height}, {player_pos.x - texPlayer[skin_id - 1].width * 0.5f, player_pos.y - texPlayer[skin_id - 1].height * 0.5f, (float)texPlayer[skin_id - 1].width, (float)texPlayer[skin_id - 1].height})) {
                                 GameOver = true;
                                 spawnExplosion(particles, player_pos);
+                                PlaySound(sou_explose_1);
                                 spawnExplosion(particles, {e.pos.x + texEnemy[e.tex_id - 1].width * 0.5f, e.pos.y + texEnemy[e.tex_id - 1].height * 0.5f});
+                                PlaySound(sou_explose);
                                 wait = 2.0f;
                                 e.active = false;
                             }
@@ -454,7 +488,7 @@ int main() {
                     Extend(texButton_exit, W/2 - 142.5, H/2 + 220, 1.2f);
                     if (CheckCollisionPointRec(GetMousePosition(), {W/2 - 142.5, H/2 + 220, (float)texButton_exit.width, (float)texButton_exit.height})) {
                         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                            CloseWindow();
+                            shouldExit = true;
                         }
                     }
 
@@ -569,6 +603,11 @@ int main() {
                     Extend(texButton_menu, W/2 - texButton_menu.width * 0.5f, H/2 + 20, 1.2f);
                     if (CheckCollisionPointRec(GetMousePosition(), {W/2 - texButton_menu.width * 0.5f, H/2 + 20, (float)texButton_menu.width, (float)texButton_menu.height})) {
                         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                            StopMusicStream(music_win);
+                            StopMusicStream(music_lose);
+                            PlayMusicStream(music_background);
+                            playingWin = false;
+                            playingLose = false;
                             CurrentScreen = MENU;
                         }
                     }
@@ -576,7 +615,7 @@ int main() {
                     Extend(texButton_exit, W/2 - 142.5, H/2 + 220, 1.2f);
                     if (CheckCollisionPointRec(GetMousePosition(), {W/2 - 142.5, H/2 + 220, (float)texButton_exit.width, (float)texButton_exit.height})) {
                         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                            CloseWindow();
+                            shouldExit = true;
                         }
                     } 
                 }break;
@@ -586,6 +625,33 @@ int main() {
             
         EndDrawing();
     }
+
+    for (auto &it : texPlayer) {
+        UnloadTexture(it);
+    }
+    for (auto &it : texEnemy) {
+        UnloadTexture(it);
+    }
+    UnloadTexture(texBackground_back);
+    UnloadTexture(texBackground_front);
+    UnloadTexture(texBackground_star);
+    UnloadTexture(texLogo_space_shooter);
+    UnloadTexture(texLogo_skin);
+    UnloadTexture(texLogo_victory);
+    UnloadTexture(texLogo_gameover);
+    UnloadTexture(texBullet);
+    UnloadTexture(texBullet_e);
+    UnloadTexture(texButton_play);
+    UnloadTexture(texButton_menu);
+    UnloadTexture(texButton_exit);
+
+    UnloadMusicStream(music_background);
+    UnloadMusicStream(music_win);
+    UnloadSound(sou_explose);
+    UnloadSound(sou_laser);
+    UnloadSound(sou_laser_enemy);
+
+    CloseAudioDevice();
 
     CloseWindow();
     return 0;
